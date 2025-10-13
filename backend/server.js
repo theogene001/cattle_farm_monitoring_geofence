@@ -94,6 +94,23 @@ router.get('/health', (req, res) => {
   });
 });
 
+// Debug: list registered routes (development only)
+router.get('/_routes', (req, res) => {
+  try {
+    const routes = [];
+    // router.stack contains layers with route definitions
+    router.stack.forEach((layer) => {
+      if (layer && layer.route && layer.route.path) {
+        const methods = Object.keys(layer.route.methods).join(',').toUpperCase();
+        routes.push({ path: '/api/v1' + layer.route.path, methods });
+      }
+    });
+    res.json({ success: true, routes });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to list routes', error: err.message });
+  }
+});
+
 // Use router
 app.use('/api/v1', router);
 
