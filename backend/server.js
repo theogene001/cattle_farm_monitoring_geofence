@@ -97,6 +97,10 @@ router.get('/health', (req, res) => {
 // Use router
 app.use('/api/v1', router);
 
+// Also mount device route at root as a compatibility fallback
+app.use('/device', deviceAlertsRoute);
+console.log('🔔 Device alerts route also mounted at /device (fallback)');
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
