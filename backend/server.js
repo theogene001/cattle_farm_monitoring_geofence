@@ -83,6 +83,7 @@ router.patch('/alerts/:id/resolve', authenticateToken, resolveAlert);
 router.use('/gps', gpsRoute);
 // Device alerts route (public)
 router.use('/device', deviceAlertsRoute);
+console.log('🔔 Device alerts route mounted at /api/v1/device');
 
 // Health check
 router.get('/health', (req, res) => {

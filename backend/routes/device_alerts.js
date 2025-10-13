@@ -58,4 +58,9 @@ router.all('/alert', async (req, res) => {
   }
 });
 
+// Simple ping to verify route is alive
+router.get('/ping', (req, res) => {
+  res.json({ success: true, message: 'device route is reachable' });
+});
+
 module.exports = router;
