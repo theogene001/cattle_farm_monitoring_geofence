@@ -35,6 +35,7 @@ const {
   resolveAlert
 } = require('./controllers');
 const gpsRoute = require('./routes/gps');
+const deviceAlertsRoute = require('./routes/device_alerts');
 
 // Create Express app
 const app = express();
@@ -80,6 +81,8 @@ router.patch('/alerts/:id/read', optionalAuth, markAlertRead);
 router.patch('/alerts/:id/resolve', authenticateToken, resolveAlert);
 // GPS route (public endpoint for devices)
 router.use('/gps', gpsRoute);
+// Device alerts route (public)
+router.use('/device', deviceAlertsRoute);
 
 // Health check
 router.get('/health', (req, res) => {
@@ -204,6 +207,26 @@ const startServer = async () => {
           INDEX idx_location (latitude, longitude)
         )
       `);
+        // Ensure alerts table exists (for device alerts)
+        await executeQuery(`
+          CREATE TABLE IF NOT EXISTS alerts (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            farm_id INT DEFAULT 1,
+            animal_id INT DEFAULT NULL,
+            alert_type VARCHAR(100) DEFAULT 'device',
+            severity VARCHAR(32) DEFAULT 'medium',
+            title VARCHAR(255),
+            message TEXT,
+            location_latitude DECIMAL(10,8) DEFAULT NULL,
+            location_longitude DECIMAL(11,8) DEFAULT NULL,
+            triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status VARCHAR(32) DEFAULT 'active',
+            acknowledged_at TIMESTAMP NULL,
+            acknowledged_by INT NULL,
+            resolved_at TIMESTAMP NULL,
+            resolved_by INT NULL
+          )
+        `);
       // Ensure animals table exists
       await executeQuery(`
         CREATE TABLE IF NOT EXISTS animals (
