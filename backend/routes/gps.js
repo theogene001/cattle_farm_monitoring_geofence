@@ -51,6 +51,33 @@ router.post('/', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Database error', error: result.error });
       }
 
+      // Upsert into current_locations so dashboard shows latest position
+      try {
+        const upsertSql = `INSERT INTO current_locations (animal_id, collar_id, latitude, longitude, recorded_at, battery_level, signal_quality, temperature_celsius)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            latitude = VALUES(latitude),
+            longitude = VALUES(longitude),
+            recorded_at = VALUES(recorded_at),
+            battery_level = VALUES(battery_level),
+            signal_quality = VALUES(signal_quality),
+            temperature_celsius = VALUES(temperature_celsius)`;
+        const upsertParams = [
+          animal_id,
+          collar_id,
+          Number(latitude),
+          Number(longitude),
+          recorded_at ? recorded_at : new Date(),
+          battery_level,
+          signal_quality,
+          temperature_celsius
+        ];
+        await executeQuery(upsertSql, upsertParams);
+      } catch (upErr) {
+        console.warn('Failed to upsert current_locations:', upErr.message || upErr);
+        // non-fatal — we already inserted the historical record
+      }
+
       return res.json({ success: true, message: 'Animal location saved', id: result.insertId || null });
     }
 
@@ -59,6 +86,20 @@ router.post('/', async (req, res) => {
     const result = await executeQuery(sql, [Number(latitude), Number(longitude)]);
     if (!result.success) {
       return res.status(500).json({ success: false, message: 'Database error', error: result.error });
+    }
+    // Also update current_locations for raw GPS points (no animal/collar)
+    try {
+      const upsertSql = `INSERT INTO current_locations (animal_id, collar_id, latitude, longitude, recorded_at)
+        VALUES (NULL, NULL, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          latitude = VALUES(latitude),
+          longitude = VALUES(longitude),
+          recorded_at = VALUES(recorded_at)`;
+      // Use the new GPS insert time
+      await executeQuery(upsertSql, [Number(latitude), Number(longitude), new Date()]);
+    } catch (upErr) {
+      // non-fatal
+      console.warn('Failed to upsert current_locations for raw gps:', upErr.message || upErr);
     }
     return res.json({ success: true, message: 'GPS coordinates saved successfully!' });
   } catch (err) {

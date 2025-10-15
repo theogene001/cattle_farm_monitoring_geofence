@@ -278,6 +278,22 @@ const startServer = async () => {
           INDEX idx_location (latitude, longitude)
         )
       `);
+      // Ensure current_locations table exists for quick lookups of latest position per animal/collar
+      await executeQuery(`
+        CREATE TABLE IF NOT EXISTS current_locations (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          animal_id INT DEFAULT NULL,
+          collar_id INT DEFAULT NULL,
+          latitude DOUBLE,
+          longitude DOUBLE,
+          recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          battery_level INT DEFAULT NULL,
+          signal_quality VARCHAR(16) DEFAULT NULL,
+          temperature_celsius DECIMAL(5,2) DEFAULT NULL,
+          UNIQUE KEY uk_animal (animal_id),
+          UNIQUE KEY uk_collar (collar_id)
+        )
+      `);
         // Ensure alerts table exists (for device alerts)
         await executeQuery(`
           CREATE TABLE IF NOT EXISTS alerts (
