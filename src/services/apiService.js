@@ -1,5 +1,7 @@
 // API Service for Cattle Farm Monitoring Frontend
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+// Default to the deployed Render URL, but allow overriding with REACT_APP_API_URL
+const DEFAULT_API_URL = 'https://cattle-farm-monitoring-backend.onrender.com/api/v1';
+const API_BASE_URL = process.env.REACT_APP_API_URL || DEFAULT_API_URL;
 
 class ApiService {
   constructor() {
@@ -37,6 +39,11 @@ class ApiService {
     // Add authorization header if token exists
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Debug: log Authorization header when in development to help diagnose 401/403
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('API request', endpoint, 'Authorization:', config.headers.Authorization);
     }
 
     try {
@@ -127,12 +134,53 @@ class ApiService {
     return this.get('/dashboard/fences');
   }
 
+  async createVirtualFence(data) {
+    return this.post('/dashboard/fences', data);
+  }
+
+  async updateVirtualFence(id, data) {
+    return this.put(`/dashboard/fences/${id}`, data);
+  }
+
+  async deleteVirtualFence(id) {
+    return this.delete(`/dashboard/fences/${id}`);
+  }
+
   async getAnimalLocations() {
     return this.get('/dashboard/locations');
   }
 
+  // Users management
+  async getUsers() {
+    return this.get('/users');
+  }
+
+  async createUser(data) {
+    return this.post('/users', data);
+  }
+
+  async updateUser(id, data) {
+    return this.put(`/users/${id}`, data);
+  }
+
+  async deleteUser(id) {
+    return this.delete(`/users/${id}`);
+  }
+
+  async updateAnimalLocation(animalId, data) {
+    return this.post(`/dashboard/animals/${animalId}/location`, data);
+  }
+
+  async getAnimalLocationHistory(animalId, limit = 100) {
+    return this.get(`/dashboard/animals/${animalId}/location-history?limit=${limit}`);
+  }
+
   async getAlerts() {
     return this.get('/alerts');
+  }
+
+  async markAlertRead(id) {
+    return this.patch(`/alerts/${id}/read`, {});
   }
 
   // Animals - create
