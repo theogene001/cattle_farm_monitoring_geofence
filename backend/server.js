@@ -35,6 +35,8 @@ const {
   resolveAlert
 } = require('./controllers');
 const gpsRoute = require('./routes/gps');
+const gpsStreamRoute = require('./routes/gps_stream');
+const usersRoute = require('./routes/users');
 const deviceAlertsRoute = require('./routes/device_alerts');
 
 // Create Express app
@@ -81,6 +83,10 @@ router.patch('/alerts/:id/read', optionalAuth, markAlertRead);
 router.patch('/alerts/:id/resolve', authenticateToken, resolveAlert);
 // GPS route (public endpoint for devices)
 router.use('/gps', gpsRoute);
+// GPS stream (Server-Sent Events) for live updates
+router.use('/gps', gpsStreamRoute);
+// Users management
+router.use('/users', usersRoute);
 // Device alerts route (public)
 router.use('/device', deviceAlertsRoute);
 console.log('🔔 Device alerts route mounted at /api/v1/device');
