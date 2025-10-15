@@ -97,39 +97,40 @@ router.post('/', async (req, res) => {
       return res.json({ success: true, message: 'Animal location saved', id: result.insertId || null });
     }
 
-    // Otherwise fall back to GPS raw table
-    const sql = 'INSERT INTO gps_data (latitude, longitude) VALUES (?, ?)';
-    const result = await executeQuery(sql, [Number(latitude), Number(longitude)]);
-    if (!result.success) {
-      return res.status(500).json({ success: false, message: 'Database error', error: result.error });
-    }
-  // Also update current_locations for raw GPS points (no animal/collar)
+    // Otherwise fall back to updating a single global current location row
+    // We use a reserved animal_id = 0 to store the last raw GPS position (no specific animal)
     try {
       const upsertSql = `INSERT INTO current_locations (animal_id, collar_id, latitude, longitude, recorded_at)
-        VALUES (NULL, NULL, ?, ?, ?)
+        VALUES (0, NULL, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
           latitude = VALUES(latitude),
           longitude = VALUES(longitude),
           recorded_at = VALUES(recorded_at)`;
-      // Use the new GPS insert time
-      await executeQuery(upsertSql, [Number(latitude), Number(longitude), new Date()]);
+      const now = new Date();
+      const upsertRes = await executeQuery(upsertSql, [Number(latitude), Number(longitude), now]);
+      if (!upsertRes.success) {
+        console.warn('Failed to upsert current_locations for raw gps:', upsertRes.error);
+        return res.status(500).json({ success: false, message: 'Database error', error: upsertRes.error });
+      }
+
       // Emit live event for raw gps point as well
       try {
         gpsEmitter.emit('location', {
-          animal_id: null,
+          animal_id: 0,
           collar_id: null,
           latitude: Number(latitude),
           longitude: Number(longitude),
-          recorded_at: new Date()
+          recorded_at: now
         });
       } catch (emitErr) {
         console.warn('Failed to emit gps location event (raw):', emitErr && emitErr.message ? emitErr.message : emitErr);
       }
-    } catch (upErr) {
-      // non-fatal
-      console.warn('Failed to upsert current_locations for raw gps:', upErr.message || upErr);
+
+      return res.json({ success: true, message: 'GPS coordinates saved (updated current location)' });
+    } catch (errUp) {
+      console.error('Raw GPS upsert error:', errUp);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
     }
-    return res.json({ success: true, message: 'GPS coordinates saved successfully!' });
   } catch (err) {
     console.error('GPS route error:', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });
