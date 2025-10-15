@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { executeQuery } = require('../database');
+const gpsEmitter = require('../gpsEvents');
 
 // POST /gps - save a GPS point
 router.post('/', async (req, res) => {
@@ -51,7 +52,7 @@ router.post('/', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Database error', error: result.error });
       }
 
-      // Upsert into current_locations so dashboard shows latest position
+  // Upsert into current_locations so dashboard shows latest position
       try {
         const upsertSql = `INSERT INTO current_locations (animal_id, collar_id, latitude, longitude, recorded_at, battery_level, signal_quality, temperature_celsius)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -73,6 +74,21 @@ router.post('/', async (req, res) => {
           temperature_celsius
         ];
         await executeQuery(upsertSql, upsertParams);
+        // Emit live event for subscribers
+        try {
+          gpsEmitter.emit('location', {
+            animal_id,
+            collar_id,
+            latitude: Number(latitude),
+            longitude: Number(longitude),
+            recorded_at: upsertParams[4],
+            battery_level,
+            signal_quality,
+            temperature_celsius
+          });
+        } catch (emitErr) {
+          console.warn('Failed to emit gps location event:', emitErr && emitErr.message ? emitErr.message : emitErr);
+        }
       } catch (upErr) {
         console.warn('Failed to upsert current_locations:', upErr.message || upErr);
         // non-fatal — we already inserted the historical record
@@ -87,7 +103,7 @@ router.post('/', async (req, res) => {
     if (!result.success) {
       return res.status(500).json({ success: false, message: 'Database error', error: result.error });
     }
-    // Also update current_locations for raw GPS points (no animal/collar)
+  // Also update current_locations for raw GPS points (no animal/collar)
     try {
       const upsertSql = `INSERT INTO current_locations (animal_id, collar_id, latitude, longitude, recorded_at)
         VALUES (NULL, NULL, ?, ?, ?)
@@ -97,6 +113,18 @@ router.post('/', async (req, res) => {
           recorded_at = VALUES(recorded_at)`;
       // Use the new GPS insert time
       await executeQuery(upsertSql, [Number(latitude), Number(longitude), new Date()]);
+      // Emit live event for raw gps point as well
+      try {
+        gpsEmitter.emit('location', {
+          animal_id: null,
+          collar_id: null,
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          recorded_at: new Date()
+        });
+      } catch (emitErr) {
+        console.warn('Failed to emit gps location event (raw):', emitErr && emitErr.message ? emitErr.message : emitErr);
+      }
     } catch (upErr) {
       // non-fatal
       console.warn('Failed to upsert current_locations for raw gps:', upErr.message || upErr);
