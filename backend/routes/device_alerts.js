@@ -28,7 +28,8 @@ const sendEmail = async ({ to, subject, text, html }) => {
 
 // Endpoint for devices to report alerts.
 // Accepts GET or POST. Query params: alert, distance, motion, lat, lon
-router.all('/alert', async (req, res) => {
+// handler function exposed for direct use by server (fallbacks)
+const handleAlert = async (req, res) => {
   try {
     const payload = req.method === 'GET' ? req.query : req.body;
 
@@ -99,7 +100,14 @@ router.all('/alert', async (req, res) => {
     console.error('Device alert route error:', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
-});
+};
+
+// attach to router as before
+router.all('/alert', handleAlert);
+
+module.exports = router;
+// also export the handler for direct mounting by server as a fallback
+module.exports.handleAlert = handleAlert;
 
 // Simple ping to verify route is alive
 router.get('/ping', (req, res) => {

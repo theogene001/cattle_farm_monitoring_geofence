@@ -118,6 +118,17 @@ app.use('/api/v1', router);
 app.use('/device', deviceAlertsRoute);
 console.log('🔔 Device alerts route also mounted at /device (fallback)');
 
+// Fallback direct mount: call handler directly for POST/GET on these paths
+if (deviceAlertsRoute && deviceAlertsRoute.handleAlert) {
+  app.post('/api/v1/device/alert', deviceAlertsRoute.handleAlert);
+  app.post('/device/alert', deviceAlertsRoute.handleAlert);
+  app.get('/api/v1/device/alert', deviceAlertsRoute.handleAlert);
+  app.get('/device/alert', deviceAlertsRoute.handleAlert);
+  console.log('🔁 Device alert handler mounted directly at /api/v1/device/alert and /device/alert');
+} else {
+  console.warn('⚠️ Device alert handler not available to mount directly');
+}
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
