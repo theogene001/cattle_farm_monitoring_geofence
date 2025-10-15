@@ -102,16 +102,28 @@ const handleAlert = async (req, res) => {
   }
 };
 
-// attach to router as before
-router.all('/alert', handleAlert);
+// attach to router and support both trailing and non-trailing slash
+router.all(['/alert', '/alert/'], handleAlert);
 
-module.exports = router;
-// also export the handler for direct mounting by server as a fallback
-module.exports.handleAlert = handleAlert;
+// Temporary echo endpoint for debugging device reachability (no DB)
+// POST /api/v1/device/echo or /device/echo will return the request body and headers
+router.post(['/echo', '/echo/'], async (req, res) => {
+  try {
+    console.log('📣 Echo endpoint hit:', { path: req.path, method: req.method });
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+    return res.json({ success: true, message: 'echo', path: req.path, method: req.method, headers: req.headers, body: req.body });
+  } catch (err) {
+    console.error('Echo handler error:', err);
+    return res.status(500).json({ success: false, message: 'Echo error' });
+  }
+});
 
 // Simple ping to verify route is alive
 router.get('/ping', (req, res) => {
   res.json({ success: true, message: 'device route is reachable' });
 });
 
+// Export router and handler properly so server can mount handler directly as a fallback
 module.exports = router;
+module.exports.handleAlert = handleAlert;
