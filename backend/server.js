@@ -129,6 +129,44 @@ if (deviceAlertsRoute && deviceAlertsRoute.handleAlert) {
   console.warn('⚠️ Device alert handler not available to mount directly');
 }
 
+// Additional robust fallbacks: direct echo and ping endpoints on app level
+// These ensure the deployed instance responds to device requests even if the router
+// failed to mount for some reason. They are intentionally simple and safe.
+app.get('/api/v1/device/ping', (req, res) => {
+  res.json({ success: true, message: 'device route is reachable (app-level ping)' });
+});
+app.get('/device/ping', (req, res) => {
+  res.json({ success: true, message: 'device route is reachable (fallback ping)' });
+});
+
+app.post(['/api/v1/device/echo', '/api/v1/device/echo/', '/device/echo', '/device/echo/'], (req, res) => {
+  try {
+    console.log('📣 App-level Echo hit:', { path: req.path, method: req.method });
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+    return res.json({ success: true, message: 'app-echo', path: req.path, headers: req.headers, body: req.body });
+  } catch (err) {
+    console.error('App-level echo error:', err);
+    return res.status(500).json({ success: false, message: 'App-level echo error' });
+  }
+});
+
+// Accept alert posts at app level (trailing slash tolerant) and forward to handler if present,
+// otherwise respond with 202 and log for debugging.
+app.post(['/api/v1/device/alert', '/api/v1/device/alert/', '/device/alert', '/device/alert/'], async (req, res, next) => {
+  try {
+    if (deviceAlertsRoute && deviceAlertsRoute.handleAlert) {
+      // forward to the handler
+      return deviceAlertsRoute.handleAlert(req, res, next);
+    }
+    console.log('⚠️ App-level fallback alert received but handler missing. Body:', req.body);
+    return res.status(202).json({ success: true, message: 'Received (app fallback)'});
+  } catch (err) {
+    console.error('App-level alert fallback error:', err);
+    return res.status(500).json({ success: false, message: 'App-level alert error' });
+  }
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
