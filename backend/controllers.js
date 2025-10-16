@@ -698,7 +698,28 @@ const getAnimalLocations = async (req, res) => {
   try {
     const farmId = 1; // Default farm for demo
 
-    const result = await executeQuery(
+    // Prefer current_locations (upserted by GPS POST) for latest per-animal positions
+    const currentRes = await executeQuery(
+      `SELECT 
+         cl.animal_id,
+         cl.latitude,
+         cl.longitude,
+         cl.recorded_at AS timestamp,
+         cl.speed_kmh,
+         cl.battery_level
+       FROM current_locations cl
+       JOIN animals a ON cl.animal_id = a.id
+       WHERE a.farm_id = ?
+       ORDER BY cl.recorded_at DESC`,
+      [farmId]
+    );
+
+    if (currentRes.success && Array.isArray(currentRes.data) && currentRes.data.length > 0) {
+      return res.json({ success: true, data: currentRes.data });
+    }
+
+    // Fallback: return recent rows from animal_locations if current_locations is empty
+    const histRes = await executeQuery(
       `SELECT 
          al.id,
          al.animal_id,
@@ -713,12 +734,9 @@ const getAnimalLocations = async (req, res) => {
        ORDER BY al.recorded_at DESC`,
       [farmId]
     );
-    const locations = result.success ? result.data : [];
+    const locations = histRes.success ? histRes.data : [];
 
-    res.json({
-      success: true,
-      data: locations
-    });
+    return res.json({ success: true, data: locations });
 
   } catch (error) {
     console.error('Get animal locations error:', error);
