@@ -19,6 +19,7 @@ import 'leaflet/dist/leaflet.css';
 import './App.css';
 import logo from './img/logo.jpg';
 import apiService from './services/apiService';
+import LiveMap from './components/LiveMap';
 // Import chart components
 import { 
   BarChart, 
@@ -294,65 +295,14 @@ const App = ({ user }) => {
       </div>
 
       <div className="map-container">
-        <MapContainer
+        <LiveMap
           center={farmCenter}
           zoom={14}
-          style={{ height: '500px', width: '100%' }}
-          scrollWheelZoom={true}
-        >
-          {/* Satellite Tile Layer */}
-          <TileLayer
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
-          />
-          
-          {/* Virtual Fence Boundaries */}
-          {dashboardData.virtualFences.map((fence) => (
-            <Circle
-              key={fence.id}
-              center={[fence.center_latitude, fence.center_longitude]}
-              radius={fence.radius_meters}
-              pathOptions={{
-                color: fence.is_active ? '#3CB371' : '#FF6B6B',
-                fillColor: fence.is_active ? '#3CB371' : '#FF6B6B',
-                fillOpacity: 0.1,
-                weight: 2
-              }}
-            >
-              <Popup>
-                <div className="fence-popup">
-                  <h4>{fence.name}</h4>
-                  <p>Status: {fence.is_active ? 'Active' : 'Inactive'}</p>
-                  <p>Radius: {(fence.radius_meters / 1000).toFixed(1)} km</p>
-                </div>
-              </Popup>
-            </Circle>
-          ))}
-          
-          {/* Animal Markers */}
-          {dashboardData.animalLocations.map((location) => {
-            const animal = dashboardData.animals.find(a => a.id === location.animal_id);
-            return (
-              <Marker 
-                key={location.id} 
-                position={[location.latitude, location.longitude]}
-                icon={createCustomIcon(animal?.health_status === 'healthy' ? '#3CB371' : '#FF6B6B')}
-              >
-                <Popup>
-                  <div className="animal-popup">
-                    <h4>
-                      <Heart size={16} />
-                      {animal?.name || 'Unknown Animal'}
-                    </h4>
-                    <p><strong>Tag:</strong> {animal?.tag_number}</p>
-                    <p><strong>Status:</strong> {animal?.health_status}</p>
-                    <p><strong>Last Update:</strong> {new Date(location.timestamp).toLocaleTimeString()}</p>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
-        </MapContainer>
+          pollInterval={5000}
+          showFence={true}
+          fenceRadius={2000}
+          virtualFences={dashboardData.virtualFences}
+        />
 
         <div className="map-legend">
           <h4>Map Legend</h4>

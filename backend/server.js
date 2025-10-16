@@ -117,6 +117,22 @@ router.get('/_routes', (req, res) => {
   }
 });
 
+// Dev-only helper to check if a user exists (enable by setting DEBUG_DEV_ENDPOINTS=1)
+router.get('/_debug/user-exists', async (req, res) => {
+  try {
+    if (process.env.DEBUG_DEV_ENDPOINTS !== '1') return res.status(404).json({ success: false, message: 'Not found' });
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ success: false, message: 'email query param required' });
+    const r = await executeQuery('SELECT id, email, is_active FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1', [email]);
+    if (!r.success) return res.status(500).json({ success: false, message: 'DB error' });
+    if (r.data.length === 0) return res.json({ success: true, exists: false });
+    return res.json({ success: true, exists: true, active: !!r.data[0].is_active });
+  } catch (err) {
+    console.error('Debug user-exists error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // Use router
 app.use('/api/v1', router);
 
@@ -124,16 +140,10 @@ app.use('/api/v1', router);
 app.use('/device', deviceAlertsRoute);
 console.log('🔔 Device alerts route also mounted at /device (fallback)');
 
-// Fallback direct mount: call handler directly for POST/GET on these paths
-if (deviceAlertsRoute && deviceAlertsRoute.handleAlert) {
-  app.post('/api/v1/device/alert', deviceAlertsRoute.handleAlert);
-  app.post('/device/alert', deviceAlertsRoute.handleAlert);
-  app.get('/api/v1/device/alert', deviceAlertsRoute.handleAlert);
-  app.get('/device/alert', deviceAlertsRoute.handleAlert);
-  console.log('🔁 Device alert handler mounted directly at /api/v1/device/alert and /device/alert');
-} else {
-  console.warn('⚠️ Device alert handler not available to mount directly');
-}
+// Note: we mount the device alerts router under both /api/v1/device and /device
+// and provide an app-level fallback handler below that will forward to the
+// router's handler when necessary. Avoid mounting the same handler twice to
+// prevent duplicate registrations and confusing log output.
 
 // Additional robust fallbacks: direct echo and ping endpoints on app level
 // These ensure the deployed instance responds to device requests even if the router

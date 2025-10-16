@@ -20,6 +20,15 @@ const login = async (req, res) => {
       [email]
     );
 
+    // Optional debug logging to help diagnose 401s (enable by setting DEBUG_AUTH=1)
+    if (process.env.DEBUG_AUTH === '1') {
+      try {
+        console.debug('DEBUG_AUTH: user lookup result success=', result.success, 'rows=', result.data ? result.data.length : 0);
+      } catch (d) {
+        console.debug('DEBUG_AUTH: unable to log user lookup result');
+      }
+    }
+
     if (!result.success || result.data.length === 0) {
       return res.status(401).json({
         success: false,
@@ -29,7 +38,27 @@ const login = async (req, res) => {
 
     const user = result.data[0];
     // Compare provided password with stored hash
-    const passwordMatches = await bcrypt.compare(password, user.password_hash);
+    let passwordMatches = false;
+    try {
+      passwordMatches = await bcrypt.compare(password, user.password_hash);
+    } catch (e) {
+      // If bcrypt.compare throws (e.g., stored value isn't a bcrypt hash),
+      // optionally allow a plaintext comparison for development only
+      if (process.env.ALLOW_PLAINTEXT_LOGIN === '1') {
+        passwordMatches = (password === user.password_hash);
+        if (process.env.DEBUG_AUTH === '1') console.debug('DEBUG_AUTH: plaintext fallback used for user', user.email);
+      } else {
+        // keep it false and allow the handler to return 401 below
+        if (process.env.DEBUG_AUTH === '1') console.debug('DEBUG_AUTH: bcrypt compare failed and plaintext fallback disabled');
+      }
+    }
+    if (process.env.DEBUG_AUTH === '1') {
+      try {
+        console.debug('DEBUG_AUTH: password compare result=', !!passwordMatches);
+      } catch (d) {
+        /* ignore logging errors */
+      }
+    }
     if (!user || !passwordMatches) {
       return res.status(401).json({
         success: false,
@@ -702,11 +731,13 @@ const getAnimalLocations = async (req, res) => {
     const currentRes = await executeQuery(
       `SELECT 
          cl.animal_id,
+         cl.collar_id,
          cl.latitude,
          cl.longitude,
          cl.recorded_at AS timestamp,
-         cl.speed_kmh,
-         cl.battery_level
+         cl.battery_level,
+         cl.signal_quality,
+         cl.temperature_celsius
        FROM current_locations cl
        JOIN animals a ON cl.animal_id = a.id
        WHERE a.farm_id = ?
