@@ -2438,3 +2438,51 @@ body {
   background: var(--error-color);
   color: white;
 }
+
+/* Alerts and danger button styles */
+.alerts-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.alert-card {
+  background: linear-gradient(180deg, var(--white) 0%, #fbfbfb 100%);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  border: 1px solid var(--border-color);
+}
+.alert-card.critical { border-left: 6px solid var(--alert-red); }
+.alert-card.medium { border-left: 6px solid var(--alert-orange); }
+.alert-card.low { border-left: 6px solid var(--alert-green); }
+.alert-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.alert-title { display:flex; align-items:center; gap:8px; font-weight:600; color:var(--black); }
+.alert-time { font-size:12px; color:var(--gray-dark); }
+.alert-message { color:var(--text-secondary); margin:8px 0; }
+.alert-actions { display:flex; gap:8px; margin-top:8px; }
+.alert-btn { border: none; padding:8px 10px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; font-weight:600; }
+.alert-btn.primary { background:var(--medium-sea-green); color:var(--white); }
+.alert-btn.secondary { background:#f0f0f0; color:var(--black); }
+.btn-danger { background: linear-gradient(180deg, #ff5c5c 0%, #ff4040 100%); color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 700; box-shadow: 0 6px 16px rgba(255,64,64,0.18); }
+.btn-danger:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(255,64,64,0.2); }
+.btn-danger:active { transform: translateY(0); }
+
+/* Read vs Unread alert styles */
+.alert-card.unread {
+  background: linear-gradient(180deg, #fffefe 0%, #fff9f7 100%);
+  border-left: 6px solid rgba(255, 92, 92, 0.9);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.06);
+}
+.alert-card.read {
+  opacity: 0.72;
+  background: linear-gradient(180deg, #fbfbfb 0%, #f7f7f7 100%);
+  border-left: 6px solid rgba(200,200,200,0.5);
+}
+.unread-indicator {
+  width: 10px;
+  height: 10px;
+  background: #ff4d4d;
+  border-radius: 50%;
+  display: inline-block;
+  margin-top: 8px;
+}

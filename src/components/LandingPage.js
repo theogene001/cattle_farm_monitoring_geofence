@@ -16,15 +16,11 @@ export default function LandingPage({ onLogin }) {
     }
     setLoading(true);
     try {
-      const res = await apiService.login(email, password);
-      if (res?.success && res?.data?.user) {
-        onLogin(res.data.user);
-      } else {
-        setError(res?.message || 'Invalid email or password.');
-      }
+      // Delegate authentication to parent (AppRouter) so token/storage handling is centralized
+      await onLogin({ email, password });
     } catch (err) {
       const msg = err?.message || '';
-      setError(msg.includes('Invalid email or password') ? 'Invalid email or password.' : 'Unable to reach server. Make sure the backend is running.');
+      setError(msg.includes('Invalid email or password') ? 'Invalid email or password.' : (msg || 'Unable to reach server. Make sure the backend is running.'));
     } finally {
       setLoading(false);
     }
@@ -61,10 +57,7 @@ export default function LandingPage({ onLogin }) {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <div style={{ marginTop: 14, fontSize: 13, color: '#555' }}>
-          <div><strong>Demo:</strong> admin@cattlefarm.com / admin123</div>
-          <div><strong>Alt:</strong> demo@cattlefarm.com / demo123</div>
-        </div>
+        {/* Removed demo credential hints to rely on real user accounts and seeded admin only */}
       </div>
     </div>
   );

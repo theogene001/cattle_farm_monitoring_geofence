@@ -53,29 +53,17 @@ const Login = ({ onLogin, onBackToLanding, onNavigateToSignup }) => {
     
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    // Call backend via onLogin (AppRouter will use apiService)
+    try {
+      await onLogin(formData);
+    } catch (err) {
+      setErrors({ general: err?.message || 'Invalid credentials. Please try again.' });
+    } finally {
       setIsLoading(false);
-      // For demo purposes, accept any valid email/password
-      if (formData.email && formData.password.length >= 6) {
-        onLogin(formData);
-      } else {
-        setErrors({ general: 'Invalid credentials. Please try again.' });
-      }
-    }, 1000);
+    }
   };
 
-  const handleDemoLogin = () => {
-    setFormData({
-      email: 'demo@cattlefarm.com',
-      password: 'demo123'
-    });
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      onLogin({ email: 'demo@cattlefarm.com', password: 'demo123' });
-    }, 500);
-  };
+  // Demo login removed: use real backend credentials
 
   return (
     <div className="login-page">
@@ -162,10 +150,6 @@ const Login = ({ onLogin, onBackToLanding, onNavigateToSignup }) => {
             <div className="divider">
               <span>or</span>
             </div>
-            
-            <button type="button" className="btn-demo" onClick={handleDemoLogin}>
-              Try Demo Account
-            </button>
           </form>
           
           <div className="login-footer">

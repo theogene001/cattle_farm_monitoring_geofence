@@ -580,11 +580,7 @@ const App = ({ user }) => {
                   <div className="col">{animal.gender}</div>
                   <div className="col">{animal.birth_date ? new Date(animal.birth_date).toLocaleDateString() : ''}</div>
                   <div className="col">{animal.details || animal.notes || ''}</div>
-                  <div className="col">
-                    <button className="icon-btn" title="View on Map">
-                      <Map size={14} />
-                    </button>
-                  </div>
+                  {/* View on Map removed */}
                 </div>
               );
             })}
@@ -607,9 +603,15 @@ const App = ({ user }) => {
 
       <div className="alerts-container">
         {[...dashboardData.alerts]
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          // Sort: unread first, then by newest
+          .sort((a, b) => {
+            const aRead = a.status === 'acknowledged' || a.status === 'resolved';
+            const bRead = b.status === 'acknowledged' || b.status === 'resolved';
+            if (aRead !== bRead) return aRead ? 1 : -1;
+            return new Date(b.timestamp) - new Date(a.timestamp);
+          })
           .map((alert) => (
-            <div key={alert.id} className={`alert-card ${alert.severity}`}>
+            <div key={alert.id} className={`alert-card ${alert.severity} ${alert.status === 'acknowledged' || alert.status === 'resolved' ? 'read' : 'unread'}`}>
               <div className="alert-header">
                 <div className="alert-title">
                   <AlertTriangle size={18} />
@@ -618,11 +620,11 @@ const App = ({ user }) => {
                 <span className="alert-time">{new Date(alert.timestamp).toLocaleString()}</span>
               </div>
               <p className="alert-message">{alert.message}</p>
+              {! (alert.status === 'acknowledged' || alert.status === 'resolved') && (
+                <div className="unread-indicator" title="Unread alert" />
+              )}
               <div className="alert-actions">
-                <button className="alert-btn primary">
-                  <Map size={14} />
-                  View on Map
-                </button>
+                {/* View on Map removed */}
                 <button className="alert-btn secondary">
                   <CheckCircle size={14} />
                   Mark Resolved

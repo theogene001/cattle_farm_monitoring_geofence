@@ -32,6 +32,7 @@ class ApiService {
         ...options.headers,
       },
       ...options,
+      credentials: 'include',
     };
 
     // Add authorization header if token exists
@@ -105,6 +106,21 @@ class ApiService {
     }
   }
 
+  // Decode JWT payload (no external deps) and return parsed object or null
+  decodeTokenPayload(token) {
+    if (!token) return null;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = Buffer.from(payload, 'base64').toString('utf8');
+      return JSON.parse(decoded);
+    } catch (err) {
+      console.warn('Failed to decode token payload', err);
+      return null;
+    }
+  }
+
   logout() {
     this.setToken(null);
     localStorage.clear();
@@ -133,6 +149,10 @@ class ApiService {
 
   async getAlerts() {
     return this.get('/alerts');
+  }
+
+  async clearAlerts() {
+    return this.request('/alerts', { method: 'DELETE' });
   }
 
   // Animals - create

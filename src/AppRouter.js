@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LandingPage from './components/LandingPage';
 import App from './App';
 import './App.css';
+import apiService from './services/apiService';
 
 const AppRouter = () => {
   const [currentPage, setCurrentPage] = useState('landing');
@@ -9,17 +10,61 @@ const AppRouter = () => {
 
   // Check for existing auth token on app load
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      // If we have a token, we can go directly to dashboard
-      setCurrentPage('dashboard');
-      setUser({ email: 'admin@cattlefarm.com' }); // Simple mock user
-    }
+    // On load, try session-first via /auth/me, then fallback to JWT in localStorage
+    // Try session-first via /auth/me, then fallback to JWT in localStorage
+    const init = async () => {
+      try {
+        const res = await apiService.get('/auth/me');
+        if (res && res.success && res.data && res.data.user) {
+          setUser(res.data.user);
+          setCurrentPage('dashboard');
+          return;
+        }
+      } catch (err) {
+        // ignore - try token fallback
+      }
+
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        const payload = apiService.decodeTokenPayload(token);
+        if (payload) {
+          setUser({
+            id: payload.id,
+            name: payload.name || payload.email,
+            email: payload.email,
+            role: payload.role || 'viewer'
+          });
+          setCurrentPage('dashboard');
+        } else {
+          // token invalid -> clear
+          apiService.logout();
+        }
+      }
+    };
+    init();
   }, []);
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    setCurrentPage('dashboard');
+  const handleLogin = async (userData) => {
+    // userData: { email, password } expected
+    try {
+      const res = await apiService.login(userData.email, userData.password);
+      if (res?.success && res.data?.token) {
+        const payload = apiService.decodeTokenPayload(res.data.token);
+        const loggedUser = payload ? {
+          id: payload.id,
+          name: payload.name || payload.email,
+          email: payload.email,
+          role: payload.role || 'viewer'
+        } : { email: userData.email };
+        setUser(loggedUser);
+        setCurrentPage('dashboard');
+      } else {
+        throw new Error(res?.message || 'Login failed');
+      }
+    } catch (err) {
+      // Bubble up to caller (Login component) to show message
+      throw err;
+    }
   };
 
   const handleLogout = () => {
