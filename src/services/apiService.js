@@ -90,6 +90,10 @@ class ApiService {
 
   // Authentication
   async login(email, password) {
+    if (!email || !password) {
+      console.warn('API Service: login called without email or password', { email, password });
+      throw new Error('Email and password are required (client)');
+    }
     console.log('🔗 API Service: Making login request to', `${API_BASE_URL}/auth/login`);
     try {
       const response = await this.post('/auth/login', { email, password });

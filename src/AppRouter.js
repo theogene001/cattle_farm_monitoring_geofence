@@ -46,6 +46,13 @@ const AppRouter = () => {
 
   const handleLogin = async (userData) => {
     // userData: { email, password } expected
+    console.log('[AppRouter] handleLogin called with:', userData);
+    if (!userData || !userData.email || !userData.password) {
+      // Provide a clear client-side error before calling the API
+      const msg = 'Email and password are required (client)';
+      console.warn('[AppRouter] Aborting login -', msg, userData);
+      throw new Error(msg);
+    }
     try {
       const res = await apiService.login(userData.email, userData.password);
       if (res?.success && res.data?.token) {
