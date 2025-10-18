@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const bcrypt = require('bcryptjs');
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 // Provide safe defaults for JWT config in development
@@ -28,6 +30,8 @@ const {
   getAnimalLocations,
   updateAnimalLocation,
   getAlerts,
+  deleteAllAlerts,
+  getCurrentUser,
   markAlertRead,
   addAnimal,
   updateAnimal,
@@ -44,24 +48,42 @@ const app = express();
 
 // Middleware
 app.use(helmet());
+// Allow configuring allowed frontend origin via env var FRONTEND_ORIGIN.
+// If ENABLE_CORS_ANY is set to 'true', allow any origin (use only for development).
+const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+const enableAny = process.env.ENABLE_CORS_ANY === 'true';
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001', 
-    'http://localhost:3002',
-    'http://localhost:3003'
-  ],
+  origin: enableAny ? true : frontendOrigin,
   credentials: true
 }));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Session middleware - simple in-memory store for development only.
+// For production, use a persistent store like Redis, connect-mongo, or similar.
+app.use(session({
+  name: process.env.SESSION_NAME || 'cattlefarm.sid',
+  secret: process.env.SESSION_SECRET || 'dev-session-secret-change-me',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 1 day
+  }
+}));
 
 // Routes
 const router = express.Router();
 
 // Public routes
 router.post('/auth/login', login);
+// Return current user (session or token)
+router.get('/auth/me', optionalAuth, getCurrentUser);
+// Logout (clear server-side session)
+router.post('/auth/logout', optionalAuth, require('./controllers').logout);
 
 // Protected routes
 router.get('/dashboard/summary', optionalAuth, getDashboardSummary);
@@ -81,6 +103,8 @@ router.post('/dashboard/animals/:id/location', optionalAuth, require('./controll
 router.get('/alerts', optionalAuth, getAlerts);
 router.patch('/alerts/:id/read', optionalAuth, markAlertRead);
 router.patch('/alerts/:id/resolve', authenticateToken, resolveAlert);
+// Admin-only: delete all alerts
+router.delete('/alerts', authenticateToken, deleteAllAlerts);
 // GPS route (public endpoint for devices)
 router.use('/gps', gpsRoute);
 // GPS stream (Server-Sent Events) for live updates
@@ -380,17 +404,8 @@ const startServer = async () => {
             console.warn('⚠️ Failed to activate existing admin user:', activateRes.error);
           }
         }
-        // Seed demo user as well for easier testing
-        const demoEmail = 'demo@cattlefarm.com';
-        const demoCheck = await executeQuery('SELECT id FROM users WHERE email = ?', [demoEmail]);
-        if (demoCheck.success && demoCheck.data.length === 0) {
-          const demoHash = bcrypt.hashSync('demo123', 12);
-          await executeQuery(
-            'INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, TRUE)',
-            ['Demo User', demoEmail, demoHash, 'viewer']
-          );
-          console.log('✅ Seeded demo user (email: demo@cattlefarm.com, password: demo123)');
-        }
+        // Note: demo user seeding has been removed to prefer explicit user management
+        // If you want a demo user for local testing, create it manually using the scripts in /backend/scripts
 
         // Ensure default farm with id=1 exists for dashboard queries
         const adminRow = await executeQuery('SELECT id FROM users WHERE email = ?', [adminEmail]);
