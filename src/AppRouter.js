@@ -13,7 +13,11 @@ const AppRouter = () => {
     if (token) {
       // If we have a token, we can go directly to dashboard
       setCurrentPage('dashboard');
-      setUser({ email: 'admin@cattlefarm.com' }); // Simple mock user
+      setUser({ 
+        name: 'System Administrator', 
+        email: 'admin@cattlefarm.com',
+        role: 'admin'
+      }); // Mock user with name
     }
   }, []);
 
