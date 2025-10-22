@@ -860,5 +860,30 @@ module.exports = {
   updateAnimal,
   deleteAnimal,
   resolveAlert
-  ,updateAnimalLocation
+  ,updateAnimalLocation,
+  deleteAllAlerts
+};
+
+// Delete (resolve) all alerts for the farm - admin only
+const deleteAllAlerts = async (req, res) => {
+  try {
+    const user = req.user || {};
+    // Require admin role for this destructive action
+    if (!user.role || user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Forbidden: admin role required' });
+    }
+
+    const farmId = 1; // default farm
+    // Mark all active alerts as resolved (safer than hard delete)
+    const updater = await executeQuery(
+      `UPDATE alerts SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE farm_id = ? AND status <> 'resolved'`,
+      [user.id || null, farmId]
+    );
+    if (!updater.success) return res.status(500).json({ success: false, message: 'Failed to clear alerts' });
+
+    return res.json({ success: true, message: 'All alerts cleared' });
+  } catch (err) {
+    console.error('Delete all alerts error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 };

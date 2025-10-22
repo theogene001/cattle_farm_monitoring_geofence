@@ -42,6 +42,7 @@ const gpsRoute = require('./routes/gps');
 const gpsStreamRoute = require('./routes/gps_stream');
 const usersRoute = require('./routes/users');
 const deviceAlertsRoute = require('./routes/device_alerts');
+const deviceControlRoute = require('./routes/device_control');
 
 // Create Express app
 const app = express();
@@ -114,6 +115,9 @@ router.use('/users', usersRoute);
 // Device alerts route (public)
 router.use('/device', deviceAlertsRoute);
 console.log('🔔 Device alerts route mounted at /api/v1/device');
+// Device control route for remote on/off
+router.use('/device', deviceControlRoute);
+console.log('🔧 Device control route mounted at /api/v1/device/control');
 
 // Health check
 router.get('/health', (req, res) => {
