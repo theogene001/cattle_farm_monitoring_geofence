@@ -9,26 +9,38 @@ const dbConfig = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'cattle_farm_monitoring',
   waitForConnections: true,
-  // Allow environment override for pool size; default to 5 to avoid excessive queuing
+  // Allow environment override for pool size; default to 2 to avoid exceeding hosted DB limits
   // Many hosted MySQL users have low limits; override with DB_POOL_LIMIT env var if needed.
-  connectionLimit: parseInt(process.env.DB_POOL_LIMIT, 10) || 5,
+  connectionLimit: parseInt(process.env.DB_POOL_LIMIT, 10) || 2,
   queueLimit: 0
 };
 
 // Create connection pool
 const pool = mysql.createPool(dbConfig);
 
-// Test database connection
-const testConnection = async () => {
-  try {
-    const connection = await pool.getConnection();
-    console.log('✅ Database connected successfully');
-    connection.release();
-    return true;
-  } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    return false;
+// Test database connection with retry/backoff to tolerate transient max_user_connections
+const testConnection = async (attempts = 5, initialDelayMs = 500) => {
+  let delay = initialDelayMs;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const connection = await pool.getConnection();
+      console.log('✅ Database connected successfully');
+      connection.release();
+      return true;
+    } catch (error) {
+      const msg = error && error.message ? error.message : String(error);
+      console.warn(`Database connection attempt ${i + 1} failed: ${msg}`);
+      // If it's a max connections error, wait and retry
+      if (i < attempts - 1) {
+        await new Promise(res => setTimeout(res, delay));
+        delay = Math.min(5000, Math.floor(delay * 1.8));
+        continue;
+      }
+      console.error('❌ Database connection failed:', msg);
+      return false;
+    }
   }
+  return false;
 };
 
 // Execute query with error handling
