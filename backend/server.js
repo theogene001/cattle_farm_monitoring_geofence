@@ -3,8 +3,19 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const bcrypt = require('bcryptjs');
-const session = require('express-session');
-const cookieParser = require('cookie-parser');
+
+// Optional dependencies: try to require but don't crash if they're not present
+function optionalRequire(name) {
+  try {
+    return require(name);
+  } catch (err) {
+    console.warn(`Optional module not found: ${name} — continuing without it.`);
+    return null;
+  }
+}
+
+const session = optionalRequire('express-session');
+const cookieParser = optionalRequire('cookie-parser');
 require('dotenv').config();
 
 // Provide safe defaults for JWT config in development
@@ -60,21 +71,37 @@ app.use(cors({
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+// Use cookieParser if available
+if (cookieParser) {
+  app.use(cookieParser());
+} else {
+  // no-op cookie parser fallback
+  app.use((req, res, next) => next());
+}
 
 // Session middleware - simple in-memory store for development only.
 // For production, use a persistent store like Redis, connect-mongo, or similar.
-app.use(session({
-  name: process.env.SESSION_NAME || 'cattlefarm.sid',
-  secret: process.env.SESSION_SECRET || 'dev-session-secret-change-me',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 1 day
-  }
-}));
+if (session) {
+  // Session middleware - simple in-memory store for development only.
+  // For production, use a persistent store like Redis, connect-mongo, or similar.
+  app.use(session({
+    name: process.env.SESSION_NAME || 'cattlefarm.sid',
+    secret: process.env.SESSION_SECRET || 'dev-session-secret-change-me',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+    }
+  }));
+} else {
+  // no-op session middleware fallback to avoid crashing when express-session isn't installed
+  app.use((req, res, next) => {
+    req.session = req.session || {}; // minimal session-like object
+    next();
+  });
+}
 
 // Routes
 const router = express.Router();
