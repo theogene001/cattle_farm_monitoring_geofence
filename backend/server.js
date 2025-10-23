@@ -60,12 +60,24 @@ const app = express();
 
 // Middleware
 app.use(helmet());
-// Allow configuring allowed frontend origin via env var FRONTEND_ORIGIN.
+// Allow configuring allowed frontend origin via env var FRONTEND_ORIGIN (comma-separated list).
 // If ENABLE_CORS_ANY is set to 'true', allow any origin (use only for development).
-const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+// Defaults include common local dev origins so local frontend can call a deployed backend.
 const enableAny = process.env.ENABLE_CORS_ANY === 'true';
+const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001'];
+const allowedOrigins = (process.env.FRONTEND_ORIGIN && process.env.FRONTEND_ORIGIN.length > 0)
+  ? process.env.FRONTEND_ORIGIN.split(',').map(s => s.trim()).filter(Boolean)
+  : defaultOrigins;
+
 app.use(cors({
-  origin: enableAny ? true : frontendOrigin,
+  origin: function(origin, callback) {
+    // Allow server-to-server or tools like curl (no origin)
+    if (!origin) return callback(null, true);
+    if (enableAny) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+    // Deny
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(morgan('dev'));
