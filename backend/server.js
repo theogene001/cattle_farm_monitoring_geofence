@@ -419,6 +419,26 @@ const startServer = async () => {
           INDEX idx_collar (collar_id)
         )
       `);
+      // Ensure legacy control_key/control_value columns exist for simple key/value controls
+      try {
+        const colCheck = await executeQuery(
+          "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'device_controls' AND COLUMN_NAME IN ('control_key','control_value')"
+        );
+        if (colCheck.success) {
+          const existing = (colCheck.data || []).map(r => r.COLUMN_NAME && r.COLUMN_NAME.toLowerCase());
+          if (!existing.includes('control_key')) {
+            await executeQuery(`ALTER TABLE device_controls ADD COLUMN control_key VARCHAR(128) UNIQUE NULL`);
+            console.log('✅ Added missing column device_controls.control_key');
+          }
+          if (!existing.includes('control_value')) {
+            await executeQuery(`ALTER TABLE device_controls ADD COLUMN control_value VARCHAR(64) DEFAULT NULL`);
+            console.log('✅ Added missing column device_controls.control_value');
+          }
+        }
+      } catch (colErr) {
+        // Non-fatal: if the ALTER fails, log and continue; device_control route will fall back to in-memory default
+        console.warn('⚠️ Could not ensure device_controls control_key/control_value columns:', colErr && colErr.message ? colErr.message : String(colErr));
+      }
       console.log('✅ Verified core tables (users, farms)');
     } catch (migErr) {
       console.warn('⚠️ Auto-migration failed:', migErr.message);
